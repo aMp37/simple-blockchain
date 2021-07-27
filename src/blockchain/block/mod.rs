@@ -1,10 +1,9 @@
 use std::{convert::TryInto, fmt};
-use sha2::{Digest, Sha256};
 use self::block_util::get_actual_timestamp;
 
-mod block_util;
+use super::util::{Sha256Digest, sha_256_provider::{Sha256Hasher, Sha256Provider}};
 
-type Sha256Digest = [u8;32];
+mod block_util;
 
 #[derive(Clone)]
 pub(super) struct Block {
@@ -40,7 +39,7 @@ impl Block {
     }
 
     pub(super) fn calculate_hash(&self) -> Sha256Digest {
-        let mut sha256hasher = Sha256::default();
+        let mut sha256hasher = Sha256Hasher::default_hasher();
         sha256hasher.update(&self.block_id.to_be_bytes());
         sha256hasher.update(&self.data);
         sha256hasher.update(self.timestamp.to_be_bytes());

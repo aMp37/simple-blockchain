@@ -1,4 +1,5 @@
 use self::block::{create_block, create_genesis_block};
+mod util;
 mod block;
 pub struct BlockChain {
     blocks: Vec<block::Block>
