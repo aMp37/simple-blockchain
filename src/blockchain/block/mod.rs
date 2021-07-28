@@ -1,9 +1,6 @@
 use std::{convert::TryInto, fmt};
-use self::block_util::get_actual_timestamp;
 
-use super::util::{Sha256Digest, sha_256_provider::{Sha256Hasher, Sha256Provider}};
-
-mod block_util;
+use super::util::{Sha256Digest, common_utils::get_actual_timestamp, sha_256_provider::{Sha256Hasher, Sha256Provider}};
 
 #[derive(Clone)]
 pub(super) struct Block {
