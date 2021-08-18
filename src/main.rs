@@ -1,4 +1,4 @@
-use blockchain::BlockChainDataManipulation;
+use blockchain::BlockChainDML;
 
 mod blockchain;
 

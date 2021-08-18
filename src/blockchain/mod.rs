@@ -11,7 +11,7 @@ pub struct BlockChain<T>
     blocks: Vec<block::Block<T>>
 }
 
-pub trait BlockChainDataManipulation<T> {
+pub trait BlockChainDML<T> {
     fn insert_data(&mut self, data: T);
 
     fn alter_block_of_id(&mut self, id: u32, new_content: T);
@@ -32,7 +32,7 @@ impl<T> BlockChain<T>
     }
 }
 
-impl<T> BlockChainDataManipulation<T> for BlockChain<T> 
+impl<T> BlockChainDML<T> for BlockChain<T> 
     where T: Serialize + Clone {
     fn insert_data(&mut self, data: T) {
         if self.blocks.is_empty() {
@@ -48,7 +48,6 @@ impl<T> BlockChainDataManipulation<T> for BlockChain<T>
     }
 
     fn alter_block_of_id(&mut self, id: u32, new_content: T) {
-
         //alter block content
         let (idx, _) = self.blocks.iter().enumerate().find(|(_, block)| block.block_id == id).unwrap();
         self.blocks[idx].data = UserData::new(new_content);
