@@ -1,26 +1,32 @@
-use std::{convert::TryInto, fmt};
+use std::{convert::TryInto};
+
+use serde::Serialize;
 
 use super::util::{Sha256Digest, common_utils::get_actual_timestamp, sha_256_provider::{Sha256Hasher, Sha256Provider}};
+use super::user_data::{UserData};
 
-#[derive(Clone)]
-pub(super) struct Block {
+#[derive(Debug, Clone)]
+pub(super) struct Block<T> 
+    where T: Serialize + Clone {
+
     pub block_id: u32,
     pub previous_block_hash: Sha256Digest,
     pub timestamp: u128,
-    pub data: String,
+    pub data: UserData<T>,
     pub nonce: u32
 }
 
-pub(super) fn create_genesis_block(id: u32, data: String) -> Block {
-    Block::new(id, None, &data)
-}
+impl<T> Block<T>
+    where T: Serialize + Clone {
+    pub(super) fn create_genesis_block(id: u32, data: T) -> Block<T> {
+        Block::new(id, None, &data)
+    }
+    
+    pub(super) fn create_block(id: u32, previous_block_hash: &[u8;32], data: T) -> Block<T> {
+        Block::new(id, Some(previous_block_hash), &data)
+    }
 
-pub(super) fn create_block(id: u32, previous_block_hash: &[u8;32], data: String) -> Block {
-    Block::new(id, Some(previous_block_hash), &data)
-}
-
-impl Block {
-    fn new(id: u32, prev_block_hash: Option<&Sha256Digest>, data: &String) -> Self {
+    fn new(id: u32, prev_block_hash: Option<&Sha256Digest>, data: &T) -> Self {
         let prev_block_hash = match prev_block_hash {
             Some(prev_block_hash_ref) => *prev_block_hash_ref,
             _ => [0u8;32],
@@ -30,7 +36,7 @@ impl Block {
             block_id: id,
             previous_block_hash: prev_block_hash,
             timestamp: get_actual_timestamp(),
-            data: data.clone(),
+            data: UserData::new(data.clone()),
             nonce: 0u32
         }
     }
@@ -46,7 +52,7 @@ impl Block {
         sha256hasher.finalize().try_into().unwrap()
     }
 
-    pub(super) fn mine(&self) -> Block {
+    pub(super) fn mine(&self) -> Block<T> {
         let mut mined_block = self.clone();
         let mut nonce_candidate = 0u32;
         while !mined_block.is_valid() {
@@ -61,17 +67,7 @@ impl Block {
     }
 }
 
-impl fmt::Display for Block {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Block #{}:
-        Hash {:?}
-        Previous block Hash {:?}
-        Data: {}
-        Nonce: {}
-        Timestamp: {}
-        Is Valid: {}", self.block_id ,self.calculate_hash(), self.previous_block_hash, self.data, self.nonce, self.timestamp, self.is_valid())
-    }
-}
-
 #[cfg(test)]
-mod test;
+mod test {
+
+}

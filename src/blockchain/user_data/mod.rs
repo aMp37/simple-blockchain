@@ -2,8 +2,8 @@ use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::Serialize;
 
 use super::util::{RSA2048DigitalSign, rsa_2048_encryption_provider::{RSA2048Provider, RSA2048Util}, sha_256_provider::{Sha256Hasher, Sha256Provider}};
-#[derive(Debug)]
-struct UserData<T> 
+#[derive(Clone, Debug)]
+pub struct UserData<T> 
     where T: Serialize {
     content: T,
     author: Option<RsaPublicKey>,
@@ -51,12 +51,18 @@ impl<T> UserData<T>
     }
 }
 
+impl<T> AsRef<[u8]> for UserData<T> 
+    where T: Serialize {
+        fn as_ref(&self) -> &[u8] {
+            [0x01, 0x02][..].as_ref()
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::blockchain::util::rsa_2048_encryption_provider::{RSA2048Provider, RSA2048Util};
     use super::UserData;
     use serde::Serialize;
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, Clone)]
     struct MockContent {
         c1: String,
         c2: i32
