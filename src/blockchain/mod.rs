@@ -1,7 +1,7 @@
 use self::block::{create_block, create_genesis_block};
 mod util;
 mod block;
-mod userData;
+mod user_data;
 pub struct BlockChain {
     blocks: Vec<block::Block>
 }

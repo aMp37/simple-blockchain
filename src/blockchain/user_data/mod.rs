@@ -1,16 +1,19 @@
 use rsa::{RsaPrivateKey, RsaPublicKey};
+use serde::Serialize;
 
 use super::util::{RSA2048DigitalSign, rsa_2048_encryption_provider::{RSA2048Provider, RSA2048Util}, sha_256_provider::{Sha256Hasher, Sha256Provider}};
 #[derive(Debug)]
-struct UserData {
-    content:[u8;64],
+struct UserData<T> 
+    where T: Serialize {
+    content: T,
     author: Option<RsaPublicKey>,
     sign: Option<RSA2048DigitalSign>
 }
 
-impl UserData {
-    pub fn new(content: [u8;64]) -> Self {
-        
+impl<T> UserData<T> 
+    where T: Serialize {
+
+    pub fn new(content: T) -> Self {
         Self {
             content,
             author: None,
@@ -24,14 +27,20 @@ impl UserData {
         self.sign = Some(sign);
     }
 
-    fn generate_sign(private_key: &RsaPrivateKey, content_to_sign: &[u8;64]) -> RSA2048DigitalSign {
-        let content_hash = Sha256Hasher::hash_bytes(content_to_sign);
+    fn generate_sign(private_key: &RsaPrivateKey, content_to_sign: &T) -> RSA2048DigitalSign {
+        let data_to_hash = Self::serialize_content_to_json_string(content_to_sign);
+        let content_hash = Sha256Hasher::hash_bytes(data_to_hash.as_bytes());
         RSA2048Util::digitally_sign_sha256(private_key, &content_hash)
+    }
+
+    fn serialize_content_to_json_string(content: &impl Serialize) -> String {
+        serde_json::to_string(content).expect("Cannot Serialize content!")
     }
 
     fn validate_signed_vote(&self) -> bool {
         if self.is_signed() {
-            let content_hash = Sha256Hasher::hash_bytes(&self.content);
+            let data_to_validate = Self::serialize_content_to_json_string(&self.content);
+            let content_hash = Sha256Hasher::hash_bytes(data_to_validate.as_ref());
             return RSA2048Util::validate_signed(&content_hash, &self.sign.unwrap(), &self.author.as_ref().unwrap());
         }
         false
@@ -43,14 +52,24 @@ impl UserData {
 }
 
 #[cfg(test)]
-mod test {use crate::blockchain::util::rsa_2048_encryption_provider::{RSA2048Provider, RSA2048Util};
-
+mod test {
+    use crate::blockchain::util::rsa_2048_encryption_provider::{RSA2048Provider, RSA2048Util};
     use super::UserData;
+    use serde::Serialize;
+    #[derive(Debug, Serialize)]
+    struct MockContent {
+        c1: String,
+        c2: i32
+    }
 
     #[test]
     fn should_validate_return_true_when_correct_content() {
         let (_, mock_prv_key) = RSA2048Util::generate_rsa_keypair();
-        let content=  [23u8;64];
+        let content=  MockContent {
+            c1: String::from("352523"),
+            c2: 53
+        };
+
         let mut vote = UserData::new(content);
         vote.sign_with_private_key(&mock_prv_key);
         assert_eq!(vote.validate_signed_vote(), true);
@@ -59,10 +78,16 @@ mod test {use crate::blockchain::util::rsa_2048_encryption_provider::{RSA2048Pro
     #[test]
     fn should_validate_return_false_when_affected_content() {
         let (_, mock_prv_key) = RSA2048Util::generate_rsa_keypair();
-        let content=  [23u8;64];
+        let content= MockContent {
+            c1: String::from("352523"),
+            c2: 53
+        };
         let mut vote = UserData::new(content);
         vote.sign_with_private_key(&mock_prv_key);
-        vote.content = [22u8;64];
+        vote.content = MockContent {
+            c1: String::from("2"),
+            c2: 53
+        };
         assert_eq!(vote.validate_signed_vote(), false);
     }
 }
