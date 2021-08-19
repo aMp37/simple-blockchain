@@ -1,13 +1,15 @@
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::Serialize;
-
 use super::util::{RSA2048DigitalSign, rsa_2048_encryption_provider::{RSA2048Provider, RSA2048Util}, sha_256_provider::{Sha256Hasher, Sha256Provider}};
-#[derive(Clone, Debug)]
+
+big_array! {BigArray;}
+#[derive(Clone, Debug, Serialize)]
 pub struct UserData<T> 
     where T: Serialize {
     content: T,
     author: Option<RsaPublicKey>,
-    sign: Option<RSA2048DigitalSign>
+    #[serde(with = "BigArray")]
+    sign: RSA2048DigitalSign
 }
 
 impl<T> UserData<T> 
@@ -17,14 +19,14 @@ impl<T> UserData<T>
         Self {
             content,
             author: None,
-            sign: None
+            sign: [0u8;256]
         }
     }
 
     pub fn sign_with_private_key(&mut self, author_private_key: &RsaPrivateKey) {
         let sign = UserData::generate_sign(author_private_key, &self.content);
         self.author = Some(RSA2048Util::get_public_key_from_private_key(author_private_key));
-        self.sign = Some(sign);
+        self.sign = sign;
     }
 
     fn generate_sign(private_key: &RsaPrivateKey, content_to_sign: &T) -> RSA2048DigitalSign {
@@ -41,13 +43,13 @@ impl<T> UserData<T>
         if self.is_signed() {
             let data_to_validate = Self::serialize_content_to_json_string(&self.content);
             let content_hash = Sha256Hasher::hash_bytes(data_to_validate.as_ref());
-            return RSA2048Util::validate_signed(&content_hash, &self.sign.unwrap(), &self.author.as_ref().unwrap());
+            return RSA2048Util::validate_signed(&content_hash, &self.sign, &self.author.as_ref().unwrap());
         }
         false
     }
 
     fn is_signed(&self) -> bool {
-        self.author.is_some() && self.sign.is_some()
+        self.author.is_some() && self.sign[..] != [0;256][..]
     }
 }
 
