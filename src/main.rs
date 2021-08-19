@@ -20,6 +20,8 @@ fn main() {
 
     blockchain.print_blockchain();
     println!("Altering 2nd block!");
-    blockchain.alter_block_of_id(4, String::from("34534"));
+    unsafe {
+        blockchain.alter_block_of_id(0, String::from("34534"));
+    }
     blockchain.print_blockchain()
 }
