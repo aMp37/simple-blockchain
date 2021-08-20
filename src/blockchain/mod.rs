@@ -1,28 +1,27 @@
-use core::panic;
+use core::{panic};
 use std::{fmt::Debug};
 
 use rsa::RsaPrivateKey;
 use serde::Serialize;
 
-use self::{block::{Block, SizeConstrained}, util::RSA2048DigitalSign};
-mod util;
+use self::{block::{Block, SizeConstrained}};
+pub mod util;
 mod block;
 pub mod user_data;
 
 impl<T> SizeConstrained for Block<T> 
-    where T: Serialize + Clone{
+    where T: Serialize + Clone + Signable + Debug{
         fn max_size() -> usize {
         100
     }
 }
 pub struct BlockChain<T> 
-    where T: Serialize + Signable + Clone {
+    where T: Serialize + Signable + Clone + Debug {
     blocks: Vec<block::Block<T>>
 }
 
 pub trait Signable {
     fn sign_with_private_key(&mut self, author_private_key: &RsaPrivateKey);
-    fn generate_sign(private_key: &RsaPrivateKey, content_to_sign: &Self) -> RSA2048DigitalSign;
     fn validate_signed_data(&self) -> bool;
     fn is_signed(&self) -> bool;
 }
@@ -41,6 +40,11 @@ impl<T> BlockChain<T>
         }
     }
 
+    pub fn validate_blockchain(&self) -> bool {
+        self.blocks.iter().map(Block::<T>::is_valid)
+        .fold(true, |acc, value|acc && value)
+    }
+
     pub fn print_blockchain(&self) {
         for ele in self.blocks.iter() {
             println!("{:?}",ele);
@@ -49,12 +53,10 @@ impl<T> BlockChain<T>
 }
 
 impl<T> BlockChainDML<T> for BlockChain<T> 
-    where T: Serialize + Signable + Clone {
+    where T: Serialize + Signable + Clone + Debug{
     fn insert_data(&mut self, data: T) {
         if self.blocks.is_empty() {
             let mut genesis_block = Block::create_genesis_block(0);
-
-            genesis_block = genesis_block.mine();
             genesis_block.push_data_to_block(data).expect("Unexpected error occurred");
             self.blocks.push(genesis_block.mine());
         } else {

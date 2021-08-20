@@ -1,9 +1,8 @@
-use core::fmt;
-use std::{convert::TryInto, vec};
+use core::{fmt};
+use std::{convert::TryInto, fmt::Debug, vec};
 use serde::Serialize;
 
-use super::util::{Sha256Digest, common_utils::get_actual_timestamp, sha_256_provider::{Sha256Hasher, Sha256Provider}};
-use super::user_data::{UserData};
+use super::{Signable, util::{Sha256Digest, common_utils::get_actual_timestamp, sha_256_provider::{Sha256Hasher, Sha256Provider}}};
 
 #[derive(Debug, Clone)]
 pub struct BlockFullError;
@@ -20,17 +19,17 @@ pub trait SizeConstrained {
 
 #[derive(Debug, Clone)]
 pub(super) struct Block<T> 
-    where T: Serialize + Clone, Self: SizeConstrained {
+    where T: Serialize + Clone + Signable + Debug, Self: SizeConstrained {
 
     pub block_id: u32,
     pub previous_block_hash: Sha256Digest,
     pub timestamp: u128,
-    pub data: Vec<UserData<T>>,
+    pub data: Vec<T>,
     pub nonce: u32
 }
 
 impl<T> Block<T>
-    where T: Serialize + Clone, Self: SizeConstrained {
+    where T: Serialize + Clone + Signable + Debug, Self: SizeConstrained {
     pub(super) fn create_genesis_block(id: u32) -> Block<T> {
         Block::new(id, None)
     }
@@ -56,7 +55,7 @@ impl<T> Block<T>
 
     pub fn push_data_to_block(&mut self, data: T) -> Result<(), BlockFullError> {
         if self.data.len() < Self::max_size() {
-            self.data.push(UserData::new(data));
+            self.data.push(data);
             Ok(())
         } else {
             Err(BlockFullError)
@@ -85,15 +84,26 @@ impl<T> Block<T>
     pub(super) fn mine(&self) -> Block<T> {
         let mut mined_block = self.clone();
         let mut nonce_candidate = 0u32;
-        while !mined_block.is_valid() {
+        while !mined_block.is_hash_valid() {
             nonce_candidate += 1u32;
             mined_block.nonce = nonce_candidate;
         }
         mined_block
     }
 
-    pub(super) fn is_valid(&self) -> bool {
+    fn is_hash_valid(&self) -> bool {
         self.calculate_hash()[30..32] == [0,0]
+    }
+
+    pub(super) fn is_valid(&self) -> bool {
+        self.validate_block_data() &&
+        self.is_hash_valid()
+    }
+
+    fn validate_block_data(&self) -> bool {
+        self.data.iter()
+            .map(Signable::validate_signed_data)
+            .fold(true, |acc, value|acc && value)
     }
 }
 
