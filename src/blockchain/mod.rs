@@ -1,12 +1,13 @@
 use core::panic;
 use std::{fmt::Debug};
 
+use rsa::RsaPrivateKey;
 use serde::Serialize;
 
-use self::{block::{Block, SizeConstrained}};
+use self::{block::{Block, SizeConstrained}, util::RSA2048DigitalSign};
 mod util;
 mod block;
-mod user_data;
+pub mod user_data;
 
 impl<T> SizeConstrained for Block<T> 
     where T: Serialize + Clone{
@@ -15,8 +16,15 @@ impl<T> SizeConstrained for Block<T>
     }
 }
 pub struct BlockChain<T> 
-    where T: Serialize + Clone {
+    where T: Serialize + Signable + Clone {
     blocks: Vec<block::Block<T>>
+}
+
+pub trait Signable {
+    fn sign_with_private_key(&mut self, author_private_key: &RsaPrivateKey);
+    fn generate_sign(private_key: &RsaPrivateKey, content_to_sign: &Self) -> RSA2048DigitalSign;
+    fn validate_signed_data(&self) -> bool;
+    fn is_signed(&self) -> bool;
 }
 
 pub trait BlockChainDML<T> {
@@ -26,7 +34,7 @@ pub trait BlockChainDML<T> {
 }
 
 impl<T> BlockChain<T> 
-    where T: Serialize + Debug + Clone {
+    where T: Serialize + Signable + Debug + Clone {
     pub fn new() -> Self {
         Self {
             blocks: vec![]
@@ -41,7 +49,7 @@ impl<T> BlockChain<T>
 }
 
 impl<T> BlockChainDML<T> for BlockChain<T> 
-    where T: Serialize + Clone {
+    where T: Serialize + Signable + Clone {
     fn insert_data(&mut self, data: T) {
         if self.blocks.is_empty() {
             let mut genesis_block = Block::create_genesis_block(0);
