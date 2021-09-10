@@ -37,6 +37,6 @@ pub fn get_remote_peers() -> Vec<RemotePeer> {
         Vec::<RemotePeer>::new()
     } else {
         let peers = read_peers_addresses_from_file(&peers_file_handle);
-        peers.into_iter().map(RemotePeer::from_address).collect()
+        peers.iter().map(RemotePeer::from_address).collect()
     }
 }

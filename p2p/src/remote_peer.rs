@@ -25,15 +25,18 @@ impl PartialEq for RemotePeer {
 impl Eq for RemotePeer {}
 
 impl RemotePeer {
-    pub fn from_address(address: String) -> Self {
+    pub fn from_address(address: &String) -> Self {
         Self {
-            address,
+            address: address.clone(),
             state: RemotePeerState::NOT_CONNECTED
         }
     }
 
-    pub fn set_connected(&mut self) {
-        self.state = RemotePeerState::CONNECTED;
+    pub fn connected(self) -> Self {
+        Self{
+            state: RemotePeerState::CONNECTED,
+                ..self
+        }
     }
 
     pub fn get_address(&self) -> String{

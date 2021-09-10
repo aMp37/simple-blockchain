@@ -2,12 +2,17 @@ use std::{collections::HashSet, env::args, io::{Read, Write}, net::{SocketAddr, 
 
 use peers_file_handler::get_remote_peers;
 use remote_peer::RemotePeer;
+use dashmap::DashSet;
+use std::iter::FromIterator;
+use std::sync::Arc;
+use std::sync::atomic::Ordering::AcqRel;
+
 mod remote_peer;
 mod peers_file_handler;
 
 struct AppContext {
     host_address: String,
-    remotes_set: Mutex<HashSet<RemotePeer>>
+    remotes_set: DashSet<RemotePeer>
 }
 
 fn handle_connection(con: (TcpStream, SocketAddr)) -> Result<(), std::io::Error> {
@@ -17,17 +22,6 @@ fn handle_connection(con: (TcpStream, SocketAddr)) -> Result<(), std::io::Error>
     println!("Message from: {} -> {}", con.1, buffer.trim());
     back.shutdown(std::net::Shutdown::Both)?;
     Ok(())
-}
-
-fn modify_peers_hashset(new_value: RemotePeer, hashset: &Mutex<HashSet<RemotePeer>>) {
-    loop {
-        if let Ok(mut guard) = hashset.try_lock() {
-            guard.replace(new_value);
-            break;
-        } {
-            thread::sleep(Duration::from_millis(10));
-        }
-    }
 }
 
 fn set_up_listener(ctx: &AppContext) -> std::io::Result<()> {
@@ -41,26 +35,28 @@ fn set_up_listener(ctx: &AppContext) -> std::io::Result<()> {
     }
 }
 
-fn connect_to_peer(self_address: String, peer_address: String) -> Result<(), std::io::Error> {
-    let mut tcp_stream = TcpStream::connect(peer_address)?;
+fn connect_to_remote_peer(ctx: Arc<AppContext>, self_address: String, peer_address: String) -> Result<(), std::io::Error> {
+    let mut tcp_stream = TcpStream::connect(&peer_address)?;
+    let connected_peer_entry = RemotePeer::from_address(&peer_address).connected();
+    ctx.remotes_set.insert(connected_peer_entry);
     let hello_string = format!("Hello from {}\n", self_address);
     tcp_stream.write_all(hello_string.as_bytes())?;
     Ok(())
 }
 
-fn connect_with_remote_peers(ctx: &AppContext) -> Vec<JoinHandle<()>> {
-    ctx.remotes_set.lock().unwrap()
+fn connect_with_remote_peers(ctx: Arc<AppContext>) -> Vec<JoinHandle<()>> {
+    ctx.remotes_set
         .iter()
-        .map(|remote_peer| spawn_remote_peer_connection_thread(ctx, remote_peer.get_address()))
+        .map(|remote_peer| spawn_remote_peer_connection_thread(Arc::<AppContext>::clone(&ctx), remote_peer.get_address()))
         .collect()
 }
 
-fn spawn_remote_peer_connection_thread(host_context: &AppContext, remote_peer_address: String) -> JoinHandle<()> {
-    let host_address = host_context.host_address.clone();
+fn spawn_remote_peer_connection_thread(ctx: Arc<AppContext>, remote_peer_address: String) -> JoinHandle<()> {
+    let host_address = ctx.host_address.clone();
     let remote_peer_address = remote_peer_address;
     let handle = spawn(move|| {
         println!("{} Connection thread spawned", remote_peer_address);
-        connect_to_peer(host_address, remote_peer_address).unwrap();
+        connect_to_remote_peer(ctx, host_address, remote_peer_address).unwrap();
     });
     return handle;
 }
@@ -98,12 +94,13 @@ fn main(){
 
     let ctx = AppContext{
         host_address,
-        remotes_set: Mutex::new(remotes_set)
+        remotes_set: DashSet::from_iter(remotes_set)
     };
 
-    connect_with_remote_peers(&ctx);
+    let ctx_ref = Arc::new(ctx);
+    connect_with_remote_peers(Arc::clone(&ctx_ref));
 
-    if let Err(err) = set_up_listener(&ctx) {
+    if let Err(err) = set_up_listener(&Arc::clone(&ctx_ref)) {
         println!("An error has occured {:?}", err)
     }
 }
