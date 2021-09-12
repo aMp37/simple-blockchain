@@ -68,15 +68,40 @@ fn close_remote_peers_connections(threads: Vec<JoinHandle<()>>) {
         .for_each(|handle| handle.join().expect("Couldn't join thread!"));
 }
 
+fn get_command_line_opt_value(opt_char: char) -> Option<String> {
+    let opt_str = format!("-{}", opt_char);
+    args().skip(1)
+        .fold(None, |mut acc, x| {
+            println!("{}", x);
+            let acc_tmp = acc.clone();
+            if x == opt_str {
+                acc = Some(opt_str.clone());
+                return acc
+            }
+            if let Some(opt) = acc{
+                if opt == opt_str {
+                    acc = Some(x);
+                    return acc
+                }
+                acc_tmp
+            } else {
+                acc
+            }
+        })
+}
+
 fn get_host_address_from_args() -> Option<String> {
-    return args()
-        .skip(1)
-        .next();
+    return get_command_line_opt_value('H')
+}
+
+fn get_peers_file_from_args() -> Option<String> {
+    return get_command_line_opt_value('f')
 }
 
 fn display_usage_prompt() {
-    println!("Usage: app <host>::<port> <peer host>::<port>")
+    println!("Usage: app -H <host>::<port> <peer host>::<port> -f <peers_file_path>")
 }
+
 fn main(){
     let host_address = match get_host_address_from_args() {
         Some(address) => address,
@@ -84,9 +109,19 @@ fn main(){
             display_usage_prompt();
             return
         }
-    }; 
+    };
 
-    let peers_list = get_remote_peers();
+    let peers_file = match get_peers_file_from_args() {
+        Some(address) => address,
+        None => {
+            display_usage_prompt();
+            return
+        }
+    };
+
+    println!("{}\n{}", host_address, peers_file);
+
+    let peers_list = get_remote_peers(peers_file);
     let mut remotes_set = HashSet::<RemotePeer>::new();
     for peer in peers_list.into_iter() {
         remotes_set.insert(peer);

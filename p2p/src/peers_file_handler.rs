@@ -4,8 +4,8 @@ use crate::remote_peer::RemotePeer;
 
 const PEERS_FILE_NAME: &str = "peers.txt";
 
-fn get_peers_file_handle() -> std::fs::File {
-    let peers_file_path = format!("{}/{}", env!("PWD"), PEERS_FILE_NAME);
+fn get_peers_file_handle(peers_file_path: String) -> std::fs::File {
+    // let peers_file_path = format!("{}/{}", env!("PWD"), PEERS_FILE_NAME);
 
     return if let Ok(file_handle) = std::fs::File::open(&peers_file_path) {
         file_handle
@@ -30,8 +30,8 @@ fn read_peers_addresses_from_file(file: &std::fs::File) -> Vec<String> {
         .collect()
 }
 
-pub fn get_remote_peers() -> Vec<RemotePeer> {
-    let peers_file_handle = get_peers_file_handle();
+pub fn get_remote_peers(peers_file_path: String) -> Vec<RemotePeer> {
+    let peers_file_handle = get_peers_file_handle(peers_file_path);
     if check_file_is_empty(&peers_file_handle) {
         //TODO handle peers file empty
         Vec::<RemotePeer>::new()
